@@ -4,12 +4,7 @@
 <head data-page-node-id="D9olGSMvdbcefJpoAnQuuy">
 <meta charset="UTF-8" data-page-node-id="cOb1FzjHUQBbVruO2gxaSw">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" data-page-node-id="SRCt3b9IGVw7OmkNWg9GTA">
-<title>电力行业信息工作台（网页版）</title>
-<meta property="og:title" content="电力行业信息工作台">
-<meta property="og:description" content="每日自动更新：电力政策 · 交易公告 · 市场动态 · 监管信息（发电侧视角）">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://zaizuogong.github.io/powerinfo/">
-<meta name="twitter:card" content="summary">
+<title>电力行业信息工作台</title>
 <style>
 :root{
   --bg:#f4f6f8; --card:#ffffff; --line:#e3e7ec; --ink:#1f2733; --sub:#6b7684; --faint:#98a2b0;
@@ -66,6 +61,15 @@ nav.tabs button .n.zero{background:var(--faint)}
 .src{font-size:12px;color:var(--sub)}
 .dt{font-size:12px;color:var(--faint);margin-left:auto}
 .star{margin-left:6px}
+/* 星级：基础星(金) + 关键词加成星(红，一眼区分) */
+.stars{font-size:12px;letter-spacing:1px;white-space:nowrap}
+.star-base{color:#ef9f27}
+.star-bonus{color:#e24b4a}
+/* 关键词命中条目：左侧红条 + 淡底，便于扫读 */
+.item.kw-hit{border-left:3px solid var(--red);background:linear-gradient(90deg,var(--red-bg) 0,transparent 60px)}
+.item.kw-hit .i-title a{font-weight:500}
+.sec-title.kw-group{color:var(--red)}
+.sec-title.kw-group .cnt{color:var(--red)}
 .i-title{font-size:15px;font-weight:500;line-height:1.5}
 .i-title a{color:var(--ink)}
 .item.read .i-title a{color:var(--sub)}
@@ -134,7 +138,7 @@ details.orig p{font-size:12px;color:var(--sub);background:var(--bg);border-radiu
     <div class="h-row" data-page-node-id="M9CREbGYCXAMzSNc68oA0N">
       <div class="logo" data-page-node-id="X0tj5TQAQd6rhWyLV2QhKQ">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" data-page-node-id="5lKslBmPBNrxmE5qqNJgVv"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z" fill="#185fa5" data-page-node-id="QDQIgJ3dkmCuB5tTt9bKk4"/></svg>
-        电力行业信息工作台<span style="opacity:.55">（网页版）</span>
+        电力行业信息工作台
       </div>
       <div class="h-actions" data-page-node-id="mGd8pap7msppYytaNSqbvm">
         <button class="btn" id="btnExport" title="导出完整数据备份" data-page-node-id="tqk3qVoery4E4DQVhIVqBs">导出备份</button>
@@ -280,6 +284,30 @@ function hl(text){
   }
   return s;
 }
+/* ---------- 有效星级：原始重要性 + 关键词命中加成 ---------- */
+var KW_BONUS = 2;      /* 命中关键词加 2 星 */
+var STAR_MAX = 5;      /* 有效星级上限 5 星 */
+function kwHitCount(it){
+  var t = (it.title||"") + " " + (it.summary||"") + " " + (it.excerpt||"");
+  var n = 0;
+  for (var i=0;i<state.keywords.length;i++){
+    var k = state.keywords[i]; if(!k) continue;
+    if (t.indexOf(k) >= 0) n++;
+  }
+  return n;
+}
+function effStars(it){
+  /* 排序与展示共用的有效星级：重要性(1-3) + 命中加成，封顶 5 */
+  var base = it.importance || 0;
+  var bonus = kwHit(it) ? KW_BONUS : 0;
+  var v = base + bonus;
+  return v > STAR_MAX ? STAR_MAX : v;
+}
+function starStr(n){
+  var s = "";
+  for (var i=0;i<n;i++) s += "★";
+  return s;
+}
 function esc(s){
   return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
@@ -305,7 +333,10 @@ function briefViewDate(){
 function itemsOfDate(d){
   var arr = DATA.filter(function(it){ return it.date === d; });
   arr.sort(function(a,b){
-    if (b.importance !== a.importance) return b.importance - a.importance;
+    var ea = effStars(a), eb = effStars(b);
+    if (eb !== ea) return eb - ea;                       /* 有效星级优先（含关键词加成） */
+    var ha = kwHitCount(a), hb = kwHitCount(b);
+    if (hb !== ha) return hb - ha;                       /* 同星级：命中词数多者靠前 */
     if (!!b.official !== !!a.official) return b.official?1:-1;
     return (b.date>a.date)?1:-1;
   });
@@ -337,7 +368,10 @@ function itemsOfWeek(weekStartStr){
   var we = weekEndOf(weekStartStr);
   return DATA.filter(function(it){ return it.date >= weekStartStr && it.date <= we; })
     .sort(function(a,b){
-      if (b.importance !== a.importance) return b.importance - a.importance;
+      var ea = effStars(a), eb = effStars(b);
+      if (eb !== ea) return eb - ea;                     /* 有效星级优先（含关键词加成） */
+      var ha = kwHitCount(a), hb = kwHitCount(b);
+      if (hb !== ha) return hb - ha;
       return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0);
     });
 }
@@ -360,21 +394,32 @@ function libItems(){
       if (hay.indexOf(q) < 0) return false;
     }
     return true;
-  }).sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : b.importance-a.importance); });
+  }).sort(function(a,b){
+    var ea = effStars(a), eb = effStars(b);
+    if (eb !== ea) return eb - ea;                       /* 有效星级优先（含关键词加成） */
+    return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0);
+  });
 }
 
 /* ================= 渲染层（互不调用，统一由 refreshAll 调度） ================= */
 function itemHTML(it, opts){
   opts = opts || {};
   var hit = kwHit(it);
+  var eff = effStars(it);
+  var base = it.importance || 0;
   var imp = "";
-  for (var i=0;i<(it.importance||0);i++) imp += "★";
+  if (eff){
+    imp = '<span class="stars" title="重要度 '+base+' 星'+(hit?' + 关键词命中加成 '+(eff-base)+' 星':'')+'">'
+        + '<span class="star-base">'+starStr(base)+'</span>'
+        + (eff>base ? '<span class="star-bonus">'+starStr(eff-base)+'</span>' : "")
+        + '</span>';
+  }
   var sum = it.summary ? hl(esc(it.summary))
     : (it.excerpt ? '<span style="color:var(--faint)">摘要生成中 · </span>'+hl(esc(it.excerpt.slice(0,120)))+"…" : "");
-  return '<div class="item'+(isRead(it)?" read":"")+'" data-id="'+it.id+'">'
+  return '<div class="item'+(isRead(it)?" read":"")+(hit?" kw-hit":"")+'" data-id="'+it.id+'">'
     + '<div class="i-top"><span class="badge b-'+esc(it.category)+'">'+esc(it.category)+'</span>'
     + '<span class="src">'+esc(it.source)+'</span>'
-    + (imp?'<span style="color:#ef9f27;font-size:12px">'+imp+'</span>':"")
+    + imp
     + (hit?'<span class="badge b-交易公告">关键词:'+esc(hit)+'</span>':"")
     + '<span class="dt">'+it.date+'</span></div>'
     + '<div class="i-title"><a href="'+esc(it.url)+'" target="_blank" rel="noopener">'+hl(esc(it.title))+'</a></div>'
@@ -477,7 +522,11 @@ function renderLibrary(){
 
 function renderFav(){
   var list = DATA.filter(function(it){ return isStar(it); })
-    .sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : b.importance-a.importance); });
+    .sort(function(a,b){
+      var ea = effStars(a), eb = effStars(b);
+      if (eb !== ea) return eb - ea;
+      return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0);
+    });
   var html = "";
   if (!list.length){
     html = '<div class="card empty">收藏夹是空的 —— 在「今日简报」「信息库」等页面点击 <b>☆ 收藏</b>，收藏的信息会汇总到这里，随时取用。</div>';
@@ -566,19 +615,22 @@ function renderWeekly(){
     + '<div class="stat"><div class="v">'+kwHits+'</div><div class="l">关键词命中</div></div>'
     + '</div>';
 
-  /* 分组呈现 */
-  function group(title, arr){
+  /* 分组呈现：按有效星级（含关键词加成）分组，命中条目优先置顶 */
+  function group(title, arr, cls){
     if (!arr.length) return "";
-    var s = title ? '<div class="sec-title">'+title+'<span class="cnt">'+arr.length+' 条</span></div>' : "";
+    var s = title ? '<div class="sec-title'+(cls?" "+cls:"")+'">'+title+'<span class="cnt">'+arr.length+' 条</span></div>' : "";
     for (var j=0;j<arr.length;j++) s += itemHTML(arr[j]);
     return s;
   }
-  var key = items.filter(function(it){ return (it.importance||0) >= 3; });
-  var pol = items.filter(function(it){ return it.importance===2 && (it.category==="政策" || it.category==="监管公告"); });
-  var trade = items.filter(function(it){ return it.importance===2 && it.category==="交易公告"; });
-  var data2 = items.filter(function(it){ return it.category==="数据"; });
-  var rest = items.filter(function(it){ return it.importance<2; });
+  var hitItems = items.filter(function(it){ return kwHit(it); });
+  var rest0 = items.filter(function(it){ return !kwHit(it); });
+  var key = rest0.filter(function(it){ return (it.importance||0) >= 3; });
+  var pol = rest0.filter(function(it){ return it.importance===2 && (it.category==="政策" || it.category==="监管公告"); });
+  var trade = rest0.filter(function(it){ return it.importance===2 && it.category==="交易公告"; });
+  var data2 = rest0.filter(function(it){ return it.category==="数据"; });
+  var rest = rest0.filter(function(it){ return it.importance<2; });
 
+  html += group("★ 关键词命中（" + esc(state.keywords.join("、")) + "）", hitItems.slice(0, 30), "kw-group");
   html += group("重点政策与公告（★★★）", key.slice(0, 30));
   html += group("其他政策与监管动态", pol.slice(0, 20));
   html += group("交易相关", trade.slice(0, 20));
