@@ -65,9 +65,7 @@ nav.tabs button .n.zero{background:var(--faint)}
 .stars{font-size:12px;letter-spacing:1px;white-space:nowrap}
 .star-base{color:#ef9f27}
 .star-bonus{color:#e24b4a}
-/* 关键词命中条目：左侧红条 + 淡底，便于扫读 */
-.item.kw-hit{border-left:3px solid var(--red);background:linear-gradient(90deg,var(--red-bg) 0,transparent 60px)}
-.item.kw-hit .i-title a{font-weight:500}
+/* 关键词命中条目：仅靠关键词标签与星级加成体现，不加额外底色/边框 */
 .sec-title.kw-group{color:var(--red)}
 .sec-title.kw-group .cnt{color:var(--red)}
 .i-title{font-size:15px;font-weight:500;line-height:1.5}
@@ -416,7 +414,7 @@ function itemHTML(it, opts){
   }
   var sum = it.summary ? hl(esc(it.summary))
     : (it.excerpt ? '<span style="color:var(--faint)">摘要生成中 · </span>'+hl(esc(it.excerpt.slice(0,120)))+"…" : "");
-  return '<div class="item'+(isRead(it)?" read":"")+(hit?" kw-hit":"")+'" data-id="'+it.id+'">'
+  return '<div class="item'+(isRead(it)?" read":"")+'" data-id="'+it.id+'">'
     + '<div class="i-top"><span class="badge b-'+esc(it.category)+'">'+esc(it.category)+'</span>'
     + '<span class="src">'+esc(it.source)+'</span>'
     + imp
