@@ -83,6 +83,17 @@ details.orig p{font-size:12px;color:var(--sub);background:var(--bg);border-radiu
   color:var(--sub);cursor:pointer;min-height:30px}
 .chip.on{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
 
+/* 简报阅读筛选条（全部 / 未读 / 已读） */
+.segbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.segbar .chip{min-height:36px;padding:6px 12px;font-size:13px;display:inline-flex;align-items:center;gap:5px}
+.segbar .chip b{font-weight:600}
+.segbar .chip.on b{color:var(--blue)}
+.segbar .btn{margin-left:auto}
+@media (max-width:768px){
+  .segbar .chip{min-height:44px;padding:8px 14px;font-size:14px}
+  .segbar .btn{margin-left:0;width:100%}
+}
+
 /* 日期导航（今日简报） */
 .datebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .datebar select{min-height:40px;border:1px solid var(--line);border-radius:10px;padding:4px 10px;
@@ -258,7 +269,8 @@ var state = {
   read: lsGet("read", {}),
   stars: lsGet("stars", {}),
   keywords: lsGet("keywords", ["辽宁", "现货", "中长期", "新能源入市", "电价"]),
-  q: "", cat: "全部", src: "全部", range: 90
+  q: "", cat: "全部", src: "全部", range: 90,
+  briefRead: "all"   /* 简报阅读筛选：all 全部 / unread 未读 / read 已读 */
 };
 
 function isRead(it){ return !!state.read[it.id]; }
@@ -341,6 +353,11 @@ function itemsOfDate(d){
   return arr;
 }
 function unreadOfDate(d){ return itemsOfDate(d).filter(function(it){ return !isRead(it); }); }
+/* 简报阅读筛选按钮（纯字符串生成，不触发其他渲染） */
+function readSeg(val, label, count, cur){
+  return '<button class="chip'+(cur===val?" on":"")+'" data-seg="'+val+'">'
+    + label + ' <b>'+count+'</b></button>';
+}
 
 /* ---------- 周报精编：周计算 ---------- */
 function weekStartOf(dateStr){
@@ -475,20 +492,48 @@ function renderBrief(){
   if (hits.length){
     top += '<div class="hint">'+(isHist?"该日":"今日")+'有 <b>'+hits.length+'</b> 条信息命中你的关键词（'+esc(state.keywords.join("、"))+'），已在下方标注，请注意查看。</div>';
   }
+  /* 已读 / 未读 分组筛选 */
+  var readArr = items.filter(isRead);
+  var f = state.briefRead || "all";
+  if (f !== "unread" && f !== "read") f = "all";
+
   top += '<div class="sec-title">'+(use===t?"今日":use)+'要闻<span class="cnt">'
-    + '共 '+items.length+' 条 · 未读 '+unreads.length+' 条</span></div>';
-  if (unreads.length){
-    top += '<div style="display:flex;gap:8px;margin-bottom:10px">'
-      + '<button class="btn" id="btnReadAll">全部标为已读</button></div>';
+    + '共 '+items.length+' 条 · 未读 '+unreads.length+' 条 · 已读 '+readArr.length+' 条</span></div>';
+  top += '<div class="segbar">'
+    + readSeg("all", "全部", items.length, f)
+    + readSeg("unread", "未读", unreads.length, f)
+    + readSeg("read", "已读", readArr.length, f)
+    + (unreads.length ? '<button class="btn" id="btnReadAll">全部标为已读</button>' : "")
+    + '</div>';
+
+  var showArr = items, emptyTip = "";
+  if (f === "unread"){
+    showArr = unreads;
+    emptyTip = '该日的 '+items.length+' 条信息已全部读完。点上方「已读」可回看，或切换日期查看其他简报。';
+  } else if (f === "read"){
+    showArr = readArr;
+    emptyTip = '该日暂无已读条目。在卡片上点「标记已读」，条目就会归到这里。';
   }
+
   var html = "";
   if (!items.length){
     html = '<div class="card empty">该日暂无数据。请确认 crawler.py 已运行并生成 data.js。</div>';
+  } else if (!showArr.length){
+    html = '<div class="card empty">'+emptyTip+'</div>';
   } else {
-    for (var i=0;i<items.length;i++) html += itemHTML(items[i]);
+    for (var i=0;i<showArr.length;i++) html += itemHTML(showArr[i]);
   }
   document.getElementById("briefTop").innerHTML = top;
   document.getElementById("briefList").innerHTML = html;
+
+  /* 渲染后统一绑定事件（改数据 → refreshAll，不互相调用渲染函数） */
+  var segs = document.querySelectorAll("#briefTop [data-seg]");
+  for (var s=0;s<segs.length;s++){
+    segs[s].onclick = function(){
+      state.briefRead = this.getAttribute("data-seg");
+      refreshAll();
+    };
+  }
   var btn = document.getElementById("btnReadAll");
   if (btn) btn.onclick = function(){
     var arr = itemsOfDate(use);
